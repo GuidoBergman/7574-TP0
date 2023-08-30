@@ -28,34 +28,17 @@ services:
     volumes:
       - ./client/config.yaml:/build/config.yaml:ro
     
-  client2:
-    container_name: client2
-    image: client:latest
-    entrypoint: /client
-    environment:
-      - CLI_ID=2
-      - CLI_LOG_LEVEL=DEBUG
+    
+  health-check:
+    container_name: health-check
+    image: health-check:latest
+    entrypoint: /bin/sh /health-check.sh
     networks:
       - testing_net
     depends_on:
       - server
-    volumes:
-      - ./client/config.yaml:/build/config.yaml:ro
-    
-  client3:
-    container_name: client3
-    image: client:latest
-    entrypoint: /client
-    environment:
-      - CLI_ID=3
-      - CLI_LOG_LEVEL=DEBUG
-    networks:
-      - testing_net
-    depends_on:
-      - server
-    volumes:
-      - ./client/config.yaml:/build/config.yaml:ro
-    
+
+
 networks:
   testing_net:
     ipam:
