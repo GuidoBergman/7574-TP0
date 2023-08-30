@@ -20,6 +20,8 @@ textServerConfig = """
       - LOGGING_LEVEL=DEBUG
     networks:
       - testing_net
+    volumes:
+      - ./server/config.ini:/congig.ini:ro
 """
 
 
@@ -56,6 +58,8 @@ else:
       - testing_net
     depends_on:
       - server
+    volumes:
+      - ./client/config.yaml:/build/config.yaml:ro
     """
 
     dockerComposeFile = open(FILEPATH, 'w')
