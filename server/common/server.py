@@ -1,15 +1,15 @@
-import socket
 import logging
 import signal
 import sys
+from common.common_socket import CommonSocket
 
 class Server:
     def __init__(self, port, listen_backlog):
         # Initialize server socket
-        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._server_socket.bind(('', port))
-        self._server_socket.listen(listen_backlog)
+        self._server_socket = CommonSocket()
+        self._server_socket.bind_and_listen('', port, listen_backlog)
         self._keep_running = True
+        
 
     def sigterm_handler(self, _signo, _stack_frame):
         logging.info('SIGTERM received')
@@ -27,12 +27,14 @@ class Server:
         """
 
         while self._keep_running:
-            client_sock = self.__accept_new_connection()
-            self.__handle_client_connection(client_sock)
+            logging.info('action: accept_connections | result: in_progress')
+            client_sock, addr = self._server_socket.accept()
+            logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+            self.handle_client_connection(client_sock)
 
-        self.__close_connection()
+        self._server_socket.close()
 
-    def __handle_client_connection(self, client_sock):
+    def handle_client_connection(self, client_sock):
         """
         Read message from a specific client socket and closes the socket
 
@@ -40,36 +42,14 @@ class Server:
         client socket will also be closed
         """
         try:
-            # TODO: Modify the receive to avoid short-reads
-            msg = client_sock.recv(1024).rstrip().decode('utf-8')
-            addr = client_sock.getpeername()
+            msg, addr = client_sock.receive(1024)
+            msg = msg.rstrip().decode('utf-8')
             logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-            # TODO: Modify the send to avoid short-writes
             client_sock.send("{}\n".format(msg).encode('utf-8'))
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:
             client_sock.close()
 
-    def __accept_new_connection(self):
-        """
-        Accept new connections
 
-        Function blocks until a connection to a client is made.
-        Then connection created is printed and returned
-        """
-
-        # Connection arrived
-        logging.info('action: accept_connections | result: in_progress')
-        c, addr = self._server_socket.accept()
-        logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-        return c
-
-    def __close_connection(self):
-        """
-        Close connecton of the server socket
-        """
-
-        self._server_socket.close()
-        logging.info(f'action: close_connection | result: success')
         
