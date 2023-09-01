@@ -1,5 +1,7 @@
 import socket
 
+STATUS_OK = 0
+STATUS_ERR = -1
 
 class CommonSocket:
     def __init__(self,sock=None):
@@ -23,13 +25,35 @@ class CommonSocket:
         c, addr = self._socket.accept()
         return CommonSocket(c), addr
 
-    def receive(self, size):
-            msg = self._socket.recv(size)
-            addr = self._socket.getpeername()
-            return msg, addr
+    def connect(self, host, port):
+        self._socket.connect((host, port))
 
-    def send(self, buffer):
-        self._socket.send(buffer)
+    def receive(self, size):
+        received_bytes = 0
+        chunks = []
+        while received_bytes < size:
+            chunk = self._socket.recv(size - received_bytes)
+            if chunk == b'':
+                return STATUS_ERR, None, None
+            
+            chunks.append(chunk)
+            received_bytes += len(chunk)
+
+        buffer = b''.join(chunks)
+        
+        addr = self._socket.getpeername()
+        return STATUS_OK, buffer, addr
+
+    def send(self, buffer, size):
+        sent_bytes = 0
+        while sent_bytes < size:
+            sent = self._socket.send(buffer)
+            if sent == 0:
+                return STATUS_ERR, None 
+
+            sent_bytes += sent
+
+        return STATUS_OK    
 
     def close(self):
         """
