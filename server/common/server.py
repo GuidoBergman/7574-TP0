@@ -10,14 +10,14 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self._keep_running = True
+        signal.signal(signal.SIGTERM, self.sigterm_handler)
 
     def sigterm_handler(self, _signo, _stack_frame):
-        logging.info('SIGTERM received')
+        logging.info('action: sigterm_received')
         self._keep_running = False
         
 
     def run(self):
-        signal.signal(signal.SIGTERM, self.sigterm_handler)
         """
         Dummy Server loop
 
@@ -28,7 +28,8 @@ class Server:
 
         while self._keep_running:
             client_sock = self.__accept_new_connection()
-            self.__handle_client_connection(client_sock)
+            if self._keep_running:
+                self.__handle_client_connection(client_sock)
 
         self.__close_connection()
 
