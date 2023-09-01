@@ -13,7 +13,7 @@ class Server:
         
 
     def sigterm_handler(self, _signo, _stack_frame):
-        logging.info('SIGTERM received')
+        logging.info('action: sigterm_received')
         self._keep_running = False
         
 
