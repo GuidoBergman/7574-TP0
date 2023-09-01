@@ -28,8 +28,7 @@ class Server:
 
         while self._keep_running:
             client_sock = self.__accept_new_connection()
-            if self._keep_running:
-                self.__handle_client_connection(client_sock)
+            self.__handle_client_connection(client_sock)
 
         self.__close_connection()
 
