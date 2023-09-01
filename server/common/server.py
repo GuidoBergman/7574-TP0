@@ -29,9 +29,8 @@ class Server:
         while self._keep_running:
             logging.info('action: accept_connections | result: in_progress')
             client_sock, addr = self._server_socket.accept()
-            if self._keep_running:
-                logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-                self.handle_client_connection(client_sock)
+            logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+            self.handle_client_connection(client_sock)
 
         self._server_socket.close()
         logging.info(f'action: close_server_socket | result: success')
