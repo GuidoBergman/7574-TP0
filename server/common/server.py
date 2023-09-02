@@ -1,7 +1,14 @@
 import logging
 import signal
-import sys
 from common.common_socket import CommonSocket, STATUS_ERR, STATUS_OK
+from struct import unpack
+from common.utils import *
+
+OK_RESPONSE_CODE = 0
+RESPONSE_CODE_SIZE = 2
+BET_MESSAGE_SIZE = 128
+
+STRING_ENCODING = 'utf-8'
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -42,16 +49,24 @@ class Server:
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
-        status, msg, addr = client_sock.receive(10)
+        status, msg, addr = client_sock.receive(BET_MESSAGE_SIZE)
         if status == STATUS_ERR:
             logging.error("action: receive_message | result: fail")
             client_sock.close()
             return
 
-        msg = msg.rstrip().decode('utf-8')
-        logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-        msg = "{}\n".format(msg).encode('utf-8')
-        status = client_sock.send(msg, len(msg))
+        msg_code, agency, first_name_size, first_name, last_name_size, last_name, document, birthdate, number = unpack('!cHH53sH52sI10sH',msg)
+        msg_code = msg_code.decode(STRING_ENCODING)
+        first_name = first_name[0:first_name_size].decode(STRING_ENCODING)
+        last_name = last_name[0:last_name_size].decode(STRING_ENCODING)
+        birthdate = birthdate.decode(STRING_ENCODING)
+
+        bet = Bet(agency, first_name, last_name, document, birthdate, number)
+        store_bets([bet])
+        logging.info(f'action: apuesta_almacenada | result: success | dni: {document} | numero: {number}.')
+
+        response_code = (OK_RESPONSE_CODE).to_bytes(RESPONSE_CODE_SIZE, byteorder='big', signed=True)
+        status = client_sock.send(response_code, RESPONSE_CODE_SIZE)
         if status == STATUS_ERR:
             logging.error("action: send_message | result: fail | ip: {addr[0]}")
             client_sock.close()

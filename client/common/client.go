@@ -1,29 +1,35 @@
 package common
 
 import (
-	"bufio"
-	"fmt"
-	"net"
 	"time"
 	"os"
     "os/signal"
 	"syscall"
+	"encoding/binary"
 
 	log "github.com/sirupsen/logrus"
 )
 
+const REPONSE_CODE_SIZE int = 2
+const RESPONSE_CODE_OK int16 = 0
+
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
-	ID            string
+	ID            int
 	ServerAddress string
 	LoopLapse     time.Duration
 	LoopPeriod    time.Duration
+	FirstName     string
+	LastName	  string
+	Document      int
+	Birthdate     string
+	Number        int	
 }
 
 // Client Entity that encapsulates how
 type Client struct {
 	config ClientConfig
-	conn   net.Conn
+	conn   ClientSocket
 }
 
 // NewClient Initializes a new client receiving the configuration
@@ -35,22 +41,11 @@ func NewClient(config ClientConfig) *Client {
 	return client
 }
 
-// CreateClientSocket Initializes client socket. In case of
-// failure, error is printed in stdout/stderr and exit 1
-// is returned
-func (c *Client) createClientSocket() error {
-	conn, err := net.Dial("tcp", c.config.ServerAddress)
-	if err != nil {
-		return err
-	}
-	c.conn = conn
-	return nil
-}
+
 
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop() {
 	// autoincremental msgID to identify every message sent
-	msgID := 1
 
 	sigterm := make(chan os.Signal, 1) 
 	signal.Notify(sigterm, syscall.SIGTERM)
@@ -69,7 +64,7 @@ loop:
 	        log.Infof("action: sigterm_received | client_id: %v",
                 c.config.ID,
             )
-			c.conn.Close()
+			c.conn.close()
 	        log.Infof("action: connection_closed | client_id: %v",
                 c.config.ID,
             )
@@ -78,7 +73,7 @@ loop:
 		}
 
 		// Create the connection the server in every loop iteration. Send an
-		err := c.createClientSocket()
+		err := c.conn.createClientSocket(c.config.ServerAddress)
 		if err != nil {
 			log.Errorf(
 	        	"action: connect | result: fail | client_id: %v | error: %v",
@@ -88,32 +83,39 @@ loop:
 			return
 		}
 
-		// TODO: Modify the send to avoid short-write
-		fmt.Fprintf(
-			c.conn,
-			"[CLIENT %v] Message N°%v\n",
+		bet := NewBet(
 			c.config.ID,
-			msgID,
+			c.config.FirstName,
+			c.config.LastName,
+			c.config.Document,
+			c.config.Birthdate,
+			c.config.Number,
 		)
-		msg, err := bufio.NewReader(c.conn).ReadString('\n')
-		msgID++
-		c.conn.Close()
+		buffer, buffer_len := bet.Serialize()
+		c.conn.send(buffer, buffer_len)	
 
-		if err != nil {
-			log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-                c.config.ID,
-				err,
-			)
+		response_bytes, err := c.conn.receive(REPONSE_CODE_SIZE)
+		response_code := int16(binary.BigEndian.Uint16(response_bytes))
+
+		
+		c.conn.close()
+
+		if err != nil || response_code != RESPONSE_CODE_OK {
+			log.Errorf("action: apuesta_enviada | result: fail | dni: %v | numero: %v",
+			c.config.Document,
+            c.config.Number,
+        	)
 			return
 		}
-		log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
-            c.config.ID,
-            msg,
+		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v",
+			c.config.Document,
+            c.config.Number,
         )
 
 		// Wait a time between sending one message and the next one
 		time.Sleep(c.config.LoopPeriod)
 	}
+
 
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 }
