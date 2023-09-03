@@ -8,6 +8,7 @@ OK_RESPONSE_CODE = 0
 RESPONSE_CODE_SIZE = 2
 BET_MESSAGE_SIZE = 128
 ACTION_INFO_MSG_SIZE = 5
+BET_CODE = "B"
 
 STRING_ENCODING = 'utf-8'
 
@@ -59,24 +60,35 @@ class Server:
 
         action_code, batch_size, agency = unpack('!cHH',msg)
         action_code = action_code.decode(STRING_ENCODING)
+        if action_code != BET_CODE:
+            logging.error(f'action: action_info_msg_received | result: fail | reason: invalid action code ({action_code})')
+            client_sock.close()
+            return   
         logging.info(f'action: action_info_msg_received | result: success | action code: {action_code} | batch size: {batch_size} | agency {agency}.')
 
 
-        status, msg, addr = client_sock.receive(BET_MESSAGE_SIZE)
+        status, msg, addr = client_sock.receive(BET_MESSAGE_SIZE * batch_size)
         if status == STATUS_ERR:
             logging.error("action: receive_message | result: fail")
             client_sock.close()
             return
 
-        msg_code, agency, first_name_size, first_name, last_name_size, last_name, document, birthdate, number = unpack('!cHH53sH52sI10sH',msg)
-        msg_code = msg_code.decode(STRING_ENCODING)
-        first_name = first_name[0:first_name_size].decode(STRING_ENCODING)
-        last_name = last_name[0:last_name_size].decode(STRING_ENCODING)
-        birthdate = birthdate.decode(STRING_ENCODING)
+        bets = []
+        for i in range(batch_size):                    
+            first_byte = i * BET_MESSAGE_SIZE
+            last_byte = (i+1) * BET_MESSAGE_SIZE
 
-        bet = Bet(agency, first_name, last_name, document, birthdate, number)
-        store_bets([bet])
-        logging.info(f'action: apuesta_almacenada | result: success | dni: {document} | numero: {number}.')
+            msg_code, agency, first_name_size, first_name, last_name_size, last_name, document, birthdate, number = unpack('!cHH53sH52sI10sH',msg[first_byte:last_byte])
+            msg_code = msg_code.decode(STRING_ENCODING)
+            first_name = first_name[0:first_name_size].decode(STRING_ENCODING)
+            last_name = last_name[0:last_name_size].decode(STRING_ENCODING)
+            birthdate = birthdate.decode(STRING_ENCODING)
+
+            bet = Bet(agency, first_name, last_name, document, birthdate, number)
+            bets.append(bet)
+
+        store_bets(bets)
+        logging.info(f'action: apuestas_almacenadas | result: success | size: {batch_size}')
 
         response_code = (OK_RESPONSE_CODE).to_bytes(RESPONSE_CODE_SIZE, byteorder='big', signed=True)
         status = client_sock.send(response_code, RESPONSE_CODE_SIZE)
