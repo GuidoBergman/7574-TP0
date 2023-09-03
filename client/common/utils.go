@@ -14,7 +14,7 @@ type Bet struct {
 }
 
 const TOTAL_LENGTH int = 128
-const BET_CODE string = "B"
+
 
 func NewBet(agency int, firstName string, lastName string, document int, birthdate string, number int) *Bet {
         /*

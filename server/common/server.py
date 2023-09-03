@@ -7,7 +7,7 @@ from common.utils import *
 OK_RESPONSE_CODE = 0
 RESPONSE_CODE_SIZE = 2
 BET_MESSAGE_SIZE = 128
-ACTION_INFO_MSG_LEN = 2
+ACTION_INFO_MSG_SIZE = 5
 
 STRING_ENCODING = 'utf-8'
 
@@ -50,6 +50,18 @@ class Server:
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
+
+        status, msg, addr = client_sock.receive(ACTION_INFO_MSG_SIZE)
+        if status == STATUS_ERR:
+            logging.error("action: receive_message | result: fail")
+            client_sock.close()
+            return
+
+        action_code, batch_size, agency = unpack('!cHH',msg)
+        action_code = action_code.decode(STRING_ENCODING)
+        logging.info(f'action: action_info_msg_received | result: success | action code: {action_code} | batch size: {batch_size} | agency {agency}.')
+
+
         status, msg, addr = client_sock.receive(BET_MESSAGE_SIZE)
         if status == STATUS_ERR:
             logging.error("action: receive_message | result: fail")

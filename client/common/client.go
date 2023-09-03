@@ -15,7 +15,8 @@ import (
 
 const REPONSE_CODE_SIZE int = 2
 const RESPONSE_CODE_OK int16 = 0
-const ACTION_INFO_MSG_LEN int = 2
+const ACTION_INFO_MSG_SIZE int = 5
+const BET_CODE string = "B"
 
 
 // ClientConfig Configuration used by the client
@@ -62,9 +63,9 @@ func (c *Client) StartClientLoop() {
 	scanner := bufio.NewScanner(f)
 	notEOF := scanner.Scan()
 
-	//batchSize := 0
-	//totalBufferLen := 0
-	//buffer := make([]byte, 0)
+	batchSize := 0
+	totalBufferLen := 0
+	buffer := make([]byte, 0)
 
 
 loop:
@@ -90,6 +91,58 @@ loop:
 		default:
 		}
 
+		
+		for notEOF && (batchSize < c.config.MaxBatchSize){
+			if errScan := scanner.Err(); errScan != nil {
+				log.Errorf("action: parse_data | result: fail | error: %s", errScan)
+				c.conn.close()
+				return
+			}
+			
+	
+			betSplited := strings.Split(scanner.Text(), ",")  
+			firstName := betSplited[0]
+			lastName := betSplited[1]
+			document, err := strconv.Atoi(betSplited[2])
+			if err != nil {
+				log.Errorf("action: read_document | result: fail | client_id: %v | document %s | error: %s",
+					c.config.ID,
+					betSplited[2],
+					err,
+				)
+				c.conn.close()
+				return
+			}
+			birthdate := betSplited[3]
+			number, err := strconv.Atoi(betSplited[4])
+			if err != nil {
+				log.Errorf("action: read_number | result: fail | client_id: %v | number %s | error: %s",
+					c.config.ID,
+					betSplited[4],
+					err,
+				)
+				c.conn.close()
+				return
+			}
+	
+	
+			bet := NewBet(
+				c.config.ID,
+				firstName,
+				lastName,
+				int(document),
+				birthdate,
+				int(number),
+			)
+			betBuffer, bufferLen := bet.Serialize()
+
+			totalBufferLen += bufferLen
+			batchSize ++
+			buffer = append(buffer, betBuffer...)
+
+			notEOF = scanner.Scan()
+		}
+
 		// Create the connection the server in every loop iteration. Send an
 		err := c.conn.createClientSocket(c.config.ServerAddress)
 		if err != nil {
@@ -101,48 +154,19 @@ loop:
 			return
 		}
 
-		if errScan := scanner.Err(); errScan != nil {
-			log.Errorf("action: parse_data | result: fail | error: %s", errScan)
-			c.conn.close()
-			return
-		}
 
-		betSplited := strings.Split(scanner.Text(), ",")  
-		firstName := betSplited[0]
-		lastName := betSplited[1]
-		document, err := strconv.Atoi(betSplited[2])
-		if err != nil {
-			log.Errorf("action: read_document | result: fail | client_id: %v | document %s | error: %s",
-				c.config.ID,
-				betSplited[2],
-				err,
-			)
-			c.conn.close()
-			return
-		}
-		birthdate := betSplited[3]
-		number, err := strconv.Atoi(betSplited[4])
-		if err != nil {
-			log.Errorf("action: read_number | result: fail | client_id: %v | number %s | error: %s",
-				c.config.ID,
-				betSplited[4],
-				err,
-			)
-			c.conn.close()
-			return
-		}
+		// Send action information message (message_code, batch size, agency_number)
+		actionInfoBuffer := make([]byte, ACTION_INFO_MSG_SIZE)
+		betCode := []byte(BET_CODE)
+		copy(actionInfoBuffer, betCode)
+		binary.BigEndian.PutUint16(actionInfoBuffer[1:], uint16(batchSize))
+		binary.BigEndian.PutUint16(actionInfoBuffer[3:], uint16(c.config.ID))
+		c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
 
-
-		bet := NewBet(
-			c.config.ID,
-			firstName,
-			lastName,
-			int(document),
-			birthdate,
-			int(number),
-		)
-		betBuffer, bufferLen := bet.Serialize()
-		c.conn.send(betBuffer, bufferLen)	
+		c.conn.send(buffer, totalBufferLen)	
+		batchSize = 0
+		totalBufferLen = 0
+		buffer = make([]byte, 0)
 
 		response_bytes, err := c.conn.receive(REPONSE_CODE_SIZE)
 		response_code := int16(binary.BigEndian.Uint16(response_bytes))
@@ -151,16 +175,11 @@ loop:
 		c.conn.close()
 
 		if err != nil || response_code != RESPONSE_CODE_OK {
-			log.Errorf("action: apuesta_enviada | result: fail | dni: %v | numero: %v",
-				document,
-            	number,
-        	)
+			log.Errorf("action: apuesta_enviada | result: fail | err: %s | response_code: %v", err, response_code)
 			return
 		}
-		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v",
-			document,
-            number,
-        )
+		log.Infof("action: apuesta_enviada | result: success")
+        
 
 		if !notEOF{
 			log.Infof("action: read_bets_file | result: success")
