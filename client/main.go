@@ -35,11 +35,9 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("loop", "period")
 	v.BindEnv("loop", "lapse")
 	v.BindEnv("log", "level")
-	v.BindEnv("first", "name")
-	v.BindEnv("last", "name")
-	v.BindEnv("document")
-	v.BindEnv("birtdate")
-	v.BindEnv("number")
+	v.BindEnv("data", "path")
+	v.BindEnv("batch", "size")
+
 
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
@@ -83,17 +81,14 @@ func InitLogger(logLevel string) error {
 // PrintConfig Print all the configuration parameters of the program.
 // For debugging purposes only
 func PrintConfig(v *viper.Viper) {
-	logrus.Infof("action: config | result: success | client_id: %s | server_address: %s | loop_lapse: %v | loop_period: %v | log_level: %s | first_name: %s | last_name: %s | document: %v | birthdate: %s | number: %v",
+	logrus.Infof("action: config | result: success | client_id: %s | server_address: %s | loop_lapse: %v | loop_period: %v | log_level: %s | data_path: %s | max_batch_size: %v",
 	    v.GetString("id"),
 	    v.GetString("server.address"),
 	    v.GetDuration("loop.lapse"),
 	    v.GetDuration("loop.period"),
 	    v.GetString("log.level"),
-		v.GetString("first.name"),
-		v.GetString("last.name"),
-		v.GetInt("document"),
-		v.GetString("birthdate"),
-		v.GetInt("number"),
+		v.GetString("data.path"),
+		v.GetInt("batch.size"),
     )
 }
 
@@ -115,11 +110,8 @@ func main() {
 		ID:            v.GetInt("id"),
 		LoopLapse:     v.GetDuration("loop.lapse"),
 		LoopPeriod:    v.GetDuration("loop.period"),
-	    FirstName:	   v.GetString("first.name"),
-		LastName:	   v.GetString("last.name"),
-		Birthdate:     v.GetString("birthdate"),
-		Document:      v.GetInt("document"),
-		Number:	       v.GetInt("number"),
+		DataPath:	   v.GetString("data.path"),
+		MaxBatchSize:  v.GetInt("batch.size"),
 	}
 
 	client := common.NewClient(clientConfig)

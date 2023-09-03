@@ -36,18 +36,18 @@ func NewBet(agency int, firstName string, lastName string, document int, birthda
 
 func (b *Bet) Serialize() ([]byte, int) {
 	buffer := make([]byte, TOTAL_LENGTH)
-	bet_code := []byte(BET_CODE)
-	copy(buffer, bet_code)
+	betCode := []byte(BET_CODE)
+	copy(buffer, betCode)
 
 	binary.BigEndian.PutUint16(buffer[1:], uint16(b.Agency))
 
 	binary.BigEndian.PutUint16(buffer[3:], uint16(len(b.FirstName)))
-	first_name := []byte(b.FirstName)
-	copy(buffer[5:],first_name)
+	firstName := []byte(b.FirstName)
+	copy(buffer[5:],firstName)
 
 	binary.BigEndian.PutUint16(buffer[58:],  uint16(len(b.LastName)))
-	last_name := []byte(b.LastName)
-	copy(buffer[60:], last_name)
+	lastName := []byte(b.LastName)
+	copy(buffer[60:], lastName)
 
 
 	binary.BigEndian.PutUint32(buffer[112:],  uint32(b.Document))

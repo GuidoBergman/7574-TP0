@@ -6,12 +6,17 @@ import (
     "os/signal"
 	"syscall"
 	"encoding/binary"
+	"bufio"
+	"strings"
+	"strconv"
 
 	log "github.com/sirupsen/logrus"
 )
 
 const REPONSE_CODE_SIZE int = 2
 const RESPONSE_CODE_OK int16 = 0
+const ACTION_INFO_MSG_LEN int = 2
+
 
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
@@ -19,11 +24,8 @@ type ClientConfig struct {
 	ServerAddress string
 	LoopLapse     time.Duration
 	LoopPeriod    time.Duration
-	FirstName     string
-	LastName	  string
-	Document      int
-	Birthdate     string
-	Number        int	
+	DataPath	  string
+	MaxBatchSize  int
 }
 
 // Client Entity that encapsulates how
@@ -50,6 +52,21 @@ func (c *Client) StartClientLoop() {
 	sigterm := make(chan os.Signal, 1) 
 	signal.Notify(sigterm, syscall.SIGTERM)
 
+	f, err := os.Open(c.config.DataPath)
+	defer f.Close()
+    if err != nil {
+        log.Fatalf("action: open_data_file | result: fail | error: %s",
+			err,
+		)
+    }
+	scanner := bufio.NewScanner(f)
+	notEOF := scanner.Scan()
+
+	batchSize := 0
+	totalBufferLen := 0
+	buffer := make([]byte, 0)
+
+
 loop:
 
 	// Send messages if the loopLapse threshold has not been surpassed
@@ -59,6 +76,7 @@ loop:
 	        log.Infof("action: timeout_detected | result: success | client_id: %v",
                 c.config.ID,
             )
+			c.conn.close()
 			break loop
 		case <-sigterm:
 	        log.Infof("action: sigterm_received | client_id: %v",

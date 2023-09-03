@@ -21,11 +21,7 @@ services:
     environment:
       - CLI_ID=1
       - CLI_LOG_LEVEL=DEBUG
-      - CLI_FIRST_NAME=Franco
-      - CLI_LAST_NAME=Fernandez
-      - CLI_DOCUMENT=16130110
-      - CLI_BIRTHDATE=1980-12-24
-      - CLI_NUMBER=10
+      - CLI_DATA_PATH=agency-1.csv
     networks:
       - testing_net
     depends_on:
@@ -40,11 +36,7 @@ services:
     environment:
       - CLI_ID=2
       - CLI_LOG_LEVEL=DEBUG
-      - CLI_FIRST_NAME=Jonathan
-      - CLI_LAST_NAME=Perez
-      - CLI_DOCUMENT=16230434
-      - CLI_BIRTHDATE=1980-12-09
-      - CLI_NUMBER=14
+      - CLI_DATA_PATH=agency-2.csv
     networks:
       - testing_net
     depends_on:
@@ -59,11 +51,7 @@ services:
     environment:
       - CLI_ID=3
       - CLI_LOG_LEVEL=DEBUG
-      - CLI_FIRST_NAME=Rodrigo
-      - CLI_LAST_NAME=Perez
-      - CLI_DOCUMENT=16042235
-      - CLI_BIRTHDATE=1980-12-24
-      - CLI_NUMBER=5
+      - CLI_DATA_PATH=agency-3.csv
     networks:
       - testing_net
     depends_on:
@@ -78,11 +66,7 @@ services:
     environment:
       - CLI_ID=4
       - CLI_LOG_LEVEL=DEBUG
-      - CLI_FIRST_NAME=Milton
-      - CLI_LAST_NAME=Diaz
-      - CLI_DOCUMENT=16042233
-      - CLI_BIRTHDATE=1980-11-24
-      - CLI_NUMBER=3
+      - CLI_DATA_PATH=agency-4.csv
     networks:
       - testing_net
     depends_on:
@@ -98,11 +82,7 @@ services:
     environment:
       - CLI_ID=5
       - CLI_LOG_LEVEL=DEBUG
-      - CLI_FIRST_NAME=Ignacio
-      - CLI_LAST_NAME=Barco
-      - CLI_DOCUMENT=16032437
-      - CLI_BIRTHDATE=1981-12-24
-      - CLI_NUMBER=7
+      - CLI_DATA_PATH=agency-5.csv
     networks:
       - testing_net
     depends_on:
