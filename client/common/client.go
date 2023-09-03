@@ -62,9 +62,9 @@ func (c *Client) StartClientLoop() {
 	scanner := bufio.NewScanner(f)
 	notEOF := scanner.Scan()
 
-	batchSize := 0
-	totalBufferLen := 0
-	buffer := make([]byte, 0)
+	//batchSize := 0
+	//totalBufferLen := 0
+	//buffer := make([]byte, 0)
 
 
 loop:
@@ -101,16 +101,48 @@ loop:
 			return
 		}
 
+		if errScan := scanner.Err(); errScan != nil {
+			log.Errorf("action: parse_data | result: fail | error: %s", errScan)
+			c.conn.close()
+			return
+		}
+
+		betSplited := strings.Split(scanner.Text(), ",")  
+		firstName := betSplited[0]
+		lastName := betSplited[1]
+		document, err := strconv.Atoi(betSplited[2])
+		if err != nil {
+			log.Errorf("action: read_document | result: fail | client_id: %v | document %s | error: %s",
+				c.config.ID,
+				betSplited[2],
+				err,
+			)
+			c.conn.close()
+			return
+		}
+		birthdate := betSplited[3]
+		number, err := strconv.Atoi(betSplited[4])
+		if err != nil {
+			log.Errorf("action: read_number | result: fail | client_id: %v | number %s | error: %s",
+				c.config.ID,
+				betSplited[4],
+				err,
+			)
+			c.conn.close()
+			return
+		}
+
+
 		bet := NewBet(
 			c.config.ID,
-			c.config.FirstName,
-			c.config.LastName,
-			c.config.Document,
-			c.config.Birthdate,
-			c.config.Number,
+			firstName,
+			lastName,
+			int(document),
+			birthdate,
+			int(number),
 		)
-		buffer, buffer_len := bet.Serialize()
-		c.conn.send(buffer, buffer_len)	
+		betBuffer, bufferLen := bet.Serialize()
+		c.conn.send(betBuffer, bufferLen)	
 
 		response_bytes, err := c.conn.receive(REPONSE_CODE_SIZE)
 		response_code := int16(binary.BigEndian.Uint16(response_bytes))
@@ -120,18 +152,24 @@ loop:
 
 		if err != nil || response_code != RESPONSE_CODE_OK {
 			log.Errorf("action: apuesta_enviada | result: fail | dni: %v | numero: %v",
-			c.config.Document,
-            c.config.Number,
+				document,
+            	number,
         	)
 			return
 		}
 		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v",
-			c.config.Document,
-            c.config.Number,
+			document,
+            number,
         )
+
+		if !notEOF{
+			return
+		}
 
 		// Wait a time between sending one message and the next one
 		time.Sleep(c.config.LoopPeriod)
+
+		notEOF = scanner.Scan()
 	}
 
 
