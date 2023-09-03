@@ -163,6 +163,7 @@ loop:
         )
 
 		if !notEOF{
+			log.Infof("action: read_bets_file | result: success")
 			return
 		}
 
