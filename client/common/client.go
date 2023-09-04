@@ -99,7 +99,7 @@ loop:
 
 		if !notEOF{
 			log.Infof("action: read_bets_file | result: success")
-			return
+			break loop
 		}
 
 		// Wait a time between sending one message and the next one
