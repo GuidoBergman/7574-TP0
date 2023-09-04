@@ -17,6 +17,7 @@ const REPONSE_CODE_SIZE int = 2
 const RESPONSE_CODE_OK int16 = 0
 const ACTION_INFO_MSG_SIZE int = 5
 const BET_CODE string = "B"
+const END_CODE string = "E"
 
 
 // ClientConfig Configuration used by the client
@@ -157,7 +158,7 @@ func (c *Client) CreateBatch(scanner *bufio.Scanner) ([]byte, int, int, bool, st
 }
 
 func (c *Client) SendBatch(buffer []byte, totalBufferLen int, batchSize int) error{
-		// Create the connection the server in every loop iteration. Send an
+		// Create the connection the server in every loop iteration.
 		err := c.conn.createClientSocket(c.config.ServerAddress)
 		if err != nil {
 			log.Errorf(
@@ -190,4 +191,26 @@ func (c *Client) SendBatch(buffer []byte, totalBufferLen int, batchSize int) err
 		log.Infof("action: apuesta_enviada | result: success")
 		
 		return nil
+}
+
+func (c *Client) SendEnd() error{
+	// Create the connection the server in every loop iteration. 
+	err := c.conn.createClientSocket(c.config.ServerAddress)
+	if err != nil {
+		log.Errorf(
+			"action: connect | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+			)
+			return err
+		}
+	defer c.conn.close()
+
+
+	// Send action information message to indicate that the agency has sent all it's bets
+	actionInfoBuffer := make([]byte, ACTION_INFO_MSG_SIZE)
+	endCode := []byte(END_CODE)
+	copy(actionInfoBuffer, endCode)
+	binary.BigEndian.PutUint16(actionInfoBuffer[1:], uint16(c.config.ID))
+	c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
 }
