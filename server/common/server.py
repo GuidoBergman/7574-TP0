@@ -60,13 +60,18 @@ class Server:
 
         action_code, agency, batch_size = unpack('!cHH',msg)
         action_code = action_code.decode(STRING_ENCODING)
-        if action_code != BET_CODE:
+        
+
+        if action_code == BET_CODE:
+            logging.info(f'action: action_info_msg_received | result: success | action code: {action_code} | batch size: {batch_size} | agency {agency}')
+            self.receive_bet_batch(client_sock, agency, batch_size)
+        else:
             logging.error(f'action: action_info_msg_received | result: fail | reason: invalid action code ({action_code})')
             client_sock.close()
             return   
-        logging.info(f'action: action_info_msg_received | result: success | action code: {action_code} | batch size: {batch_size} | agency {agency}.')
+            
 
-
+    def receive_bet_batch(self, client_sock, agency, batch_size): 
         status, msg, addr = client_sock.receive(BET_MESSAGE_SIZE * batch_size)
         if status == STATUS_ERR:
             logging.error("action: receive_message | result: fail")
