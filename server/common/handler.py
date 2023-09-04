@@ -3,6 +3,9 @@ from common.common_socket import CommonSocket, STATUS_ERR, STATUS_OK
 from struct import unpack, pack, calcsize
 from common.utils import *
 
+
+
+
 OK_RESPONSE_CODE = 0
 NO_DRAW_YET_CODE = 1
 RESPONSE_CODE_SIZE = 2
@@ -15,12 +18,15 @@ WINNERS_CODE = "W"
 STRING_ENCODING = 'utf-8'
 
 class Handler:
-    def __init__(self, count_agencies):
-        self._agency_finished = {}
+    def __init__(self, count_agencies, manager):
+        agency_finished = {}
         for i in range(1, int(count_agencies) + 1):
-            self._agency_finished [i] = False
+            agency_finished [i] = False
 
-        self._winners = None
+        self._agency_finished = manager.dict(agency_finished)
+        self._winners_is_set = manager.Value('i', 0)
+        self._winners = manager.list()
+        self._bets_file_lock = manager.Lock()
 
     def handle_client_connection(self, client_sock):
         """
@@ -75,7 +81,9 @@ class Handler:
             bet = Bet(agency, first_name, last_name, document, birthdate, number)
             bets.append(bet)
 
+        self._bets_file_lock.acquire()
         store_bets(bets)
+        self._bets_file_lock.release()
         logging.info(f'action: apuestas_almacenadas | result: success | size: {batch_size}')
 
         response_code = (OK_RESPONSE_CODE).to_bytes(RESPONSE_CODE_SIZE, byteorder='big', signed=True)
@@ -92,7 +100,7 @@ class Handler:
             
     def _receive_end_code(self, client_sock, agency):
         # Evito buscar los ganadores 2 veces
-        if self._winners:
+        if self._winners_is_set.value == 1:
             client_sock.close()
             logging.info(f'action: close_client_socket | result: success')
             return
@@ -101,12 +109,14 @@ class Handler:
 
         # Si ya terminaron todas las agencias
         if all(self._agency_finished.values()):
-            self._winners = []
+            self._bets_file_lock.acquire()
             for bet in load_bets():
                 if has_won(bet):
                     self._winners.append(bet)
+            self._bets_file_lock.release()
 
             logging.info('action: sorteo | result: success')
+            self._winners_is_set.value = 1
 
         client_sock.close()
         logging.info(f'action: close_client_socket | result: success')
@@ -114,7 +124,7 @@ class Handler:
 
     def _winners_query(self, client_sock, agency):
         # Si todavia no estan los ganadores, devuelvo que aun no se hizo el sorteo
-        if not self._winners:
+        if self._winners_is_set.value == 0:
             response_code = (NO_DRAW_YET_CODE).to_bytes(RESPONSE_CODE_SIZE, byteorder='big', signed=True)
             status = client_sock.send(response_code, RESPONSE_CODE_SIZE)
             if status == STATUS_ERR:

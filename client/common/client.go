@@ -10,6 +10,7 @@ import (
 	"strings"
 	"strconv"
 	"math"
+	"fmt"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -195,12 +196,15 @@ func (c *Client) SendBatch(buffer []byte, totalBufferLen int, batchSize int) err
 
 		c.conn.send(buffer, totalBufferLen)	
 
-		response_bytes, err := c.conn.receive(REPONSE_CODE_SIZE)
-		response_code := int16(binary.BigEndian.Uint16(response_bytes))
-		
-		if err != nil || response_code != RESPONSE_CODE_OK {
-			log.Errorf("action: apuesta_enviada | result: fail | err: %s | response_code: %v", err, response_code)
+		responseBytes, err := c.conn.receive(REPONSE_CODE_SIZE)
+		if err != nil {
+			log.Errorf("action: apuesta_enviada | result: fail | err: %s", err)
 			return err
+		}
+		responseCode := int16(binary.BigEndian.Uint16(responseBytes))
+		if responseCode != RESPONSE_CODE_OK{
+			log.Errorf("action: apuesta_enviada | result: fail | response_code: %v", responseCode)
+			return fmt.Errorf("action: apuesta_enviada | result: fail | response_code: %v", responseCode)
 		}
 		log.Infof("action: apuesta_enviada | result: success")
 		
