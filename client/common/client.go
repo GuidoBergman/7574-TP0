@@ -72,13 +72,11 @@ loop:
 	        log.Infof("action: timeout_detected | result: success | client_id: %v",
                 c.config.ID,
             )
-			c.conn.close()
 			break loop
 		case <-sigterm:
 	        log.Infof("action: sigterm_received | client_id: %v",
                 c.config.ID,
             )
-			c.conn.close()
 	        log.Infof("action: connection_closed | client_id: %v",
                 c.config.ID,
             )
@@ -93,38 +91,10 @@ loop:
 			return
 		}
 
-		// Create the connection the server in every loop iteration. Send an
-		err = c.conn.createClientSocket(c.config.ServerAddress)
+		err = c.SendBatch(buffer, totalBufferLen, batchSize)
 		if err != nil {
-			log.Errorf(
-	        	"action: connect | result: fail | client_id: %v | error: %v",
-				c.config.ID,
-				err,
-			)
 			return
 		}
-
-
-		// Send action information message (message_code, batch size, agency_number)
-		actionInfoBuffer := make([]byte, ACTION_INFO_MSG_SIZE)
-		betCode := []byte(BET_CODE)
-		copy(actionInfoBuffer, betCode)
-		binary.BigEndian.PutUint16(actionInfoBuffer[1:], uint16(batchSize))
-		binary.BigEndian.PutUint16(actionInfoBuffer[3:], uint16(c.config.ID))
-		c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
-
-		c.conn.send(buffer, totalBufferLen)	
-
-		response_bytes, err := c.conn.receive(REPONSE_CODE_SIZE)
-		response_code := int16(binary.BigEndian.Uint16(response_bytes))
-		
-		c.conn.close()
-
-		if err != nil || response_code != RESPONSE_CODE_OK {
-			log.Errorf("action: apuesta_enviada | result: fail | err: %s | response_code: %v", err, response_code)
-			return
-		}
-		log.Infof("action: apuesta_enviada | result: success")
         
 
 		if !notEOF{
@@ -184,4 +154,40 @@ func (c *Client) CreateBatch(scanner *bufio.Scanner) ([]byte, int, int, bool, st
 	}
 
 	return buffer, totalBufferLen, batchSize, notEOF, "", nil
+}
+
+func (c *Client) SendBatch(buffer []byte, totalBufferLen int, batchSize int) error{
+		// Create the connection the server in every loop iteration. Send an
+		err := c.conn.createClientSocket(c.config.ServerAddress)
+		if err != nil {
+			log.Errorf(
+	        	"action: connect | result: fail | client_id: %v | error: %v",
+				c.config.ID,
+				err,
+			)
+			return err
+		}
+		defer c.conn.close()
+
+
+		// Send action information message (message_code, batch size, agency_number)
+		actionInfoBuffer := make([]byte, ACTION_INFO_MSG_SIZE)
+		betCode := []byte(BET_CODE)
+		copy(actionInfoBuffer, betCode)
+		binary.BigEndian.PutUint16(actionInfoBuffer[1:], uint16(batchSize))
+		binary.BigEndian.PutUint16(actionInfoBuffer[3:], uint16(c.config.ID))
+		c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
+
+		c.conn.send(buffer, totalBufferLen)	
+
+		response_bytes, err := c.conn.receive(REPONSE_CODE_SIZE)
+		response_code := int16(binary.BigEndian.Uint16(response_bytes))
+		
+		if err != nil || response_code != RESPONSE_CODE_OK {
+			log.Errorf("action: apuesta_enviada | result: fail | err: %s | response_code: %v", err, response_code)
+			return err
+		}
+		log.Infof("action: apuesta_enviada | result: success")
+		
+		return nil
 }
