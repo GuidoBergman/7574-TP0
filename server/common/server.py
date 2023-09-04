@@ -58,7 +58,7 @@ class Server:
             client_sock.close()
             return
 
-        action_code, batch_size, agency = unpack('!cHH',msg)
+        action_code, agency, batch_size = unpack('!cHH',msg)
         action_code = action_code.decode(STRING_ENCODING)
         if action_code != BET_CODE:
             logging.error(f'action: action_info_msg_received | result: fail | reason: invalid action code ({action_code})')

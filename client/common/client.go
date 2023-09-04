@@ -175,8 +175,8 @@ func (c *Client) SendBatch(buffer []byte, totalBufferLen int, batchSize int) err
 		actionInfoBuffer := make([]byte, ACTION_INFO_MSG_SIZE)
 		betCode := []byte(BET_CODE)
 		copy(actionInfoBuffer, betCode)
-		binary.BigEndian.PutUint16(actionInfoBuffer[1:], uint16(batchSize))
-		binary.BigEndian.PutUint16(actionInfoBuffer[3:], uint16(c.config.ID))
+		binary.BigEndian.PutUint16(actionInfoBuffer[1:], uint16(c.config.ID))
+		binary.BigEndian.PutUint16(actionInfoBuffer[3:], uint16(batchSize))		
 		c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
 
 		c.conn.send(buffer, totalBufferLen)	
