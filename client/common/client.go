@@ -61,12 +61,7 @@ func (c *Client) StartClientLoop() {
 		)
     }
 	scanner := bufio.NewScanner(f)
-	notEOF := scanner.Scan()
-
-	batchSize := 0
-	totalBufferLen := 0
-	buffer := make([]byte, 0)
-
+	
 
 loop:
 
@@ -92,59 +87,14 @@ loop:
 		}
 
 		
-		for notEOF && (batchSize < c.config.MaxBatchSize){
-			if errScan := scanner.Err(); errScan != nil {
-				log.Errorf("action: parse_data | result: fail | error: %s", errScan)
-				c.conn.close()
-				return
-			}
-			
-	
-			betSplited := strings.Split(scanner.Text(), ",")  
-			firstName := betSplited[0]
-			lastName := betSplited[1]
-			document, err := strconv.Atoi(betSplited[2])
-			if err != nil {
-				log.Errorf("action: read_document | result: fail | client_id: %v | document %s | error: %s",
-					c.config.ID,
-					betSplited[2],
-					err,
-				)
-				c.conn.close()
-				return
-			}
-			birthdate := betSplited[3]
-			number, err := strconv.Atoi(betSplited[4])
-			if err != nil {
-				log.Errorf("action: read_number | result: fail | client_id: %v | number %s | error: %s",
-					c.config.ID,
-					betSplited[4],
-					err,
-				)
-				c.conn.close()
-				return
-			}
-	
-	
-			bet := NewBet(
-				c.config.ID,
-				firstName,
-				lastName,
-				int(document),
-				birthdate,
-				int(number),
-			)
-			betBuffer, bufferLen := bet.Serialize()
-
-			totalBufferLen += bufferLen
-			batchSize ++
-			buffer = append(buffer, betBuffer...)
-
-			notEOF = scanner.Scan()
+		buffer, totalBufferLen, batchSize, notEOF, errType, err := c.CreateBatch(scanner)
+		if err != nil {
+			log.Errorf("action: %s | result: fail | error: %s", errType, err)
+			return
 		}
 
 		// Create the connection the server in every loop iteration. Send an
-		err := c.conn.createClientSocket(c.config.ServerAddress)
+		err = c.conn.createClientSocket(c.config.ServerAddress)
 		if err != nil {
 			log.Errorf(
 	        	"action: connect | result: fail | client_id: %v | error: %v",
@@ -164,13 +114,9 @@ loop:
 		c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
 
 		c.conn.send(buffer, totalBufferLen)	
-		batchSize = 0
-		totalBufferLen = 0
-		buffer = make([]byte, 0)
 
 		response_bytes, err := c.conn.receive(REPONSE_CODE_SIZE)
 		response_code := int16(binary.BigEndian.Uint16(response_bytes))
-
 		
 		c.conn.close()
 
@@ -189,9 +135,53 @@ loop:
 		// Wait a time between sending one message and the next one
 		time.Sleep(c.config.LoopPeriod)
 
+	}
+
+	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+}
+
+
+func (c *Client) CreateBatch(scanner *bufio.Scanner) ([]byte, int, int, bool, string, error){
+	notEOF := scanner.Scan()
+
+	batchSize := 0
+	totalBufferLen := 0
+	buffer := make([]byte, 0)
+
+	for notEOF && (batchSize < c.config.MaxBatchSize){
+		if errScan := scanner.Err(); errScan != nil {
+			return nil, 0, 0, false, "scanning_file", errScan
+		}		
+
+		betSplited := strings.Split(scanner.Text(), ",")  
+		firstName := betSplited[0]
+		lastName := betSplited[1]
+		document, err := strconv.Atoi(betSplited[2])
+		if err != nil {
+			return nil, 0, 0, false, "parse_document", err
+		}
+		birthdate := betSplited[3]
+		number, err := strconv.Atoi(betSplited[4])
+		if err != nil {
+			return nil, 0, 0, false, "parse_number", err
+		}
+
+		bet := NewBet(
+			c.config.ID,
+			firstName,
+			lastName,
+			int(document),
+			birthdate,
+			int(number),
+		)
+		betBuffer, bufferLen := bet.Serialize()
+
+		totalBufferLen += bufferLen
+		batchSize ++
+		buffer = append(buffer, betBuffer...)
+
 		notEOF = scanner.Scan()
 	}
 
-
-	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+	return buffer, totalBufferLen, batchSize, notEOF, "", nil
 }
