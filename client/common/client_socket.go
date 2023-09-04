@@ -1,9 +1,7 @@
 package common
 
 import (
-	"bufio"
 	"net"
-	"io"
 )
 
 type ClientSocket struct {
@@ -36,9 +34,15 @@ func (c *ClientSocket) send(buffer []byte, size int) error {
 
 func (c *ClientSocket) receive(size int) ([]byte, error) {
 	buffer := make([]byte, size)
-	reader := bufio.NewReader(c.conn)
-	_, err := io.ReadFull(reader, buffer)
-	return buffer, err
+	bytesReceived := 0
+	for bytesReceived < size{
+		n, err:= c.conn.Read(buffer[bytesReceived:size])
+		if err != nil{
+			return nil, err
+		}
+		bytesReceived = bytesReceived + n
+	}
+	return buffer, nil
 }
 
 func (c *ClientSocket) close() {

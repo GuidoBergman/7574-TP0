@@ -9,15 +9,23 @@ import (
 	"bufio"
 	"strings"
 	"strconv"
+	"math"
 
 	log "github.com/sirupsen/logrus"
 )
 
 const REPONSE_CODE_SIZE int = 2
+const COUNT_WINNERS_SIZE int = 2
+const WINNER_SIZE int = 2
 const RESPONSE_CODE_OK int16 = 0
+const NO_DRAW_YET_CODE int16 = 1
 const ACTION_INFO_MSG_SIZE int = 5
 const BET_CODE string = "B"
 const END_CODE string = "E"
+const WINNERS_CODE string = "W"
+const WINNER_WAIT_BASE float64 = 2
+const WINNER_WAIT_MIN_EXPONENT float64 = 1
+const WINNER_WAIT_MAX_EXPONENT float64 = 7
 
 
 // ClientConfig Configuration used by the client
@@ -109,6 +117,13 @@ loop:
 	}
 
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+	
+	err = c.SendEnd()
+	if err != nil{
+		return
+	}
+
+	c.QueryWinners()
 }
 
 
@@ -158,7 +173,6 @@ func (c *Client) CreateBatch(scanner *bufio.Scanner) ([]byte, int, int, bool, st
 }
 
 func (c *Client) SendBatch(buffer []byte, totalBufferLen int, batchSize int) error{
-		// Create the connection the server in every loop iteration.
 		err := c.conn.createClientSocket(c.config.ServerAddress)
 		if err != nil {
 			log.Errorf(
@@ -194,7 +208,6 @@ func (c *Client) SendBatch(buffer []byte, totalBufferLen int, batchSize int) err
 }
 
 func (c *Client) SendEnd() error{
-	// Create the connection the server in every loop iteration. 
 	err := c.conn.createClientSocket(c.config.ServerAddress)
 	if err != nil {
 		log.Errorf(
@@ -213,4 +226,61 @@ func (c *Client) SendEnd() error{
 	copy(actionInfoBuffer, endCode)
 	binary.BigEndian.PutUint16(actionInfoBuffer[1:], uint16(c.config.ID))
 	c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
+
+	log.Infof("action: send_end_msg | result: success")
+
+	return nil
+}
+
+func (c *Client) QueryWinners() error{
+	exponent := WINNER_WAIT_MIN_EXPONENT
+	responseCode := NO_DRAW_YET_CODE
+
+	for responseCode != RESPONSE_CODE_OK{
+		err := c.conn.createClientSocket(c.config.ServerAddress)
+		if err != nil {
+			log.Errorf(
+				"action: connect | result: fail | client_id: %v | error: %v",
+				c.config.ID, err,
+				)
+				return err
+			}
+
+		// Send action information message to query the agency's winners
+		actionInfoBuffer := make([]byte, ACTION_INFO_MSG_SIZE)
+		winCode := []byte(WINNERS_CODE)
+		copy(actionInfoBuffer, winCode)
+		binary.BigEndian.PutUint16(actionInfoBuffer[1:], uint16(c.config.ID))
+		c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
+
+		log.Infof("action: consulta_ganadores | result: in progress")
+		responseBytes, _ := c.conn.receive(REPONSE_CODE_SIZE)
+		responseCode = int16(binary.BigEndian.Uint16(responseBytes))
+
+		if responseCode == NO_DRAW_YET_CODE{
+			waitTime := math.Pow(WINNER_WAIT_BASE, exponent)
+			log.Infof("action: consulta_ganadores | result: aún no se hizo el sorteo")
+			time.Sleep(time.Duration(waitTime) * time.Second)
+			if exponent < WINNER_WAIT_MAX_EXPONENT{
+				exponent ++
+			}
+			c.conn.close()
+		}
+		
+	}
+
+	responseBytes, _ := c.conn.receive(COUNT_WINNERS_SIZE)
+	countWinners := binary.BigEndian.Uint16(responseBytes)
+
+	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v.", countWinners)
+
+	var i uint16 = 0
+	for ;i  < countWinners; i++ {
+		responseBytes, _ := c.conn.receive(WINNER_SIZE)
+		winner := binary.BigEndian.Uint16(responseBytes)
+		log.Infof("action: consulta_ganadores | result: success | Número ganador: %v.", winner)
+	}
+	
+	c.conn.close()
+	return nil
 }
