@@ -17,6 +17,7 @@ func (c *ClientSocket) createClientSocket(serverAddress string) error {
 		return err
 	}
 	c.conn = conn
+	log.Info("action: create_connection | result: success")
 	return nil
 }
 
