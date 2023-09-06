@@ -2,6 +2,7 @@ package common
 
 import (
 	"net"
+	log "github.com/sirupsen/logrus"
 )
 
 type ClientSocket struct {
@@ -16,6 +17,7 @@ func (c *ClientSocket) createClientSocket(serverAddress string) error {
 		return err
 	}
 	c.conn = conn
+	log.Info("action: create_connection | result: success")
 	return nil
 }
 
@@ -47,4 +49,5 @@ func (c *ClientSocket) receive(size int) ([]byte, error) {
 
 func (c *ClientSocket) close() {
 	c.conn.Close()
+	log.Info("action: close_connection | result: success")
 }
