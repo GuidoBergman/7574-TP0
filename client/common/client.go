@@ -45,7 +45,16 @@ func NewClient(config ClientConfig) *Client {
 
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop() {
-	// autoincremental msgID to identify every message sent
+	// Create the connection the server 
+	err := c.conn.createClientSocket(c.config.ServerAddress)
+	if err != nil {
+		log.Errorf(
+			"action: connect | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return
+	}
 
 	sigterm := make(chan os.Signal, 1) 
 	signal.Notify(sigterm, syscall.SIGTERM)
@@ -60,16 +69,7 @@ func (c *Client) StartClientLoop() {
 		return
 	default:
 	}
-	// Create the connection the server 
-	err := c.conn.createClientSocket(c.config.ServerAddress)
-	if err != nil {
-		log.Errorf(
-	    	"action: connect | result: fail | client_id: %v | error: %v",
-			c.config.ID,
-			err,
-		)
-		return
-	}
+
 	bet := NewBet(
 		c.config.ID,
 		c.config.FirstName,
