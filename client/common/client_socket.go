@@ -1,9 +1,7 @@
 package common
 
 import (
-	"bufio"
 	"net"
-	"io"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -19,27 +17,34 @@ func (c *ClientSocket) createClientSocket(serverAddress string) error {
 		return err
 	}
 	c.conn = conn
+	log.Info("action: create_connection | result: success")
 	return nil
 }
 
+
 func (c *ClientSocket) send(buffer []byte, size int) error {
-	w := bufio.NewWriter(c.conn)
-	bytes_sent := 0
-	for {
-		n, _:= w.Write(buffer[bytes_sent:size])
-		bytes_sent := bytes_sent + n
-		if (bytes_sent < size) {
-			break
+	bytesSent := 0
+	for bytesSent < size{
+		n, err:= c.conn.Write(buffer[bytesSent:size])
+		if err != nil{
+			return err
 		}
+		bytesSent = bytesSent + n
 	}
-	return w.Flush() 
+	return nil
 }
 
 func (c *ClientSocket) receive(size int) ([]byte, error) {
 	buffer := make([]byte, size)
-	reader := bufio.NewReader(c.conn)
-	_, err := io.ReadFull(reader, buffer)
-	return buffer, err
+	bytesReceived := 0
+	for bytesReceived < size{
+		n, err:= c.conn.Read(buffer[bytesReceived:size])
+		if err != nil{
+			return nil, err
+		}
+		bytesReceived = bytesReceived + n
+	}
+	return buffer, nil
 }
 
 func (c *ClientSocket) close() {
