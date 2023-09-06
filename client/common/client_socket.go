@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"net"
 	"io"
+	log "github.com/sirupsen/logrus"
 )
 
 type ClientSocket struct {
@@ -43,4 +44,5 @@ func (c *ClientSocket) receive(size int) ([]byte, error) {
 
 func (c *ClientSocket) close() {
 	c.conn.Close()
+	log.Info("action: close_connection | result: success")
 }
