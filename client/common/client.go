@@ -73,9 +73,6 @@ loop:
 	        log.Infof("action: sigterm_received | client_id: %v",
                 c.config.ID,
             )
-	        log.Infof("action: connection_closed | client_id: %v",
-                c.config.ID,
-            )
 			break loop
 		default:
 		}
