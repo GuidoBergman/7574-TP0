@@ -2,7 +2,7 @@
 server:
   address: "server:12345"
 loop:
-  lapse: "0m20s"
+  lapse: "0m10s"
   period: "5s"
 log:
   level: "info"
