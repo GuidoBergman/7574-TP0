@@ -39,7 +39,7 @@ type ClientConfig struct {
 	MaxBatchSize  int
 }
 
-// Client Entity that encapsulates how
+
 type Client struct {
 	config ClientConfig
 	conn   ClientSocket
@@ -74,33 +74,25 @@ func (c *Client) StartClientLoop() {
 	signal.Notify(sigterm, syscall.SIGTERM)
 
 	f, err := os.Open(c.config.DataPath)
-	defer f.Close()
     if err != nil {
         log.Errorf("action: open_data_file | result: fail | error: %s",
 			err,
 		)
     }
+	defer c.CloseFile(f)
 	scanner := bufio.NewScanner(f)
 	
 
 loop:
 
 	// Send messages if the loopLapse threshold has not been surpassed
-	for timeout := time.After(c.config.LoopLapse); ; {
+	for ; ; {
 		select {
-		case <-timeout:
-	        log.Infof("action: timeout_detected | result: success | client_id: %v",
-                c.config.ID,
-            )
-			break loop
 		case <-sigterm:
 	        log.Infof("action: sigterm_received | client_id: %v",
                 c.config.ID,
             )
-	        log.Infof("action: connection_closed | client_id: %v",
-                c.config.ID,
-            )
-			break loop
+	        return
 		default:
 		}
 
@@ -269,4 +261,10 @@ func (c *Client) QueryWinners() error{
 	}
 
 	return nil
+}
+
+
+func (c *Client) CloseFile(f *os.File){
+	f.Close()
+	log.Infof("action: close_data_file | result: success")
 }
