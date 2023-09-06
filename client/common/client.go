@@ -64,6 +64,10 @@ loop:
 	        log.Infof("action: timeout_detected | result: success | client_id: %v",
                 c.config.ID,
             )
+			c.conn.Close()
+	        log.Infof("action: connection_closed | client_id: %v",
+                c.config.ID,
+            )
 			break loop
 		case <-sigterm:
 	        log.Infof("action: sigterm_received | client_id: %v",
