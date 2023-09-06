@@ -81,9 +81,10 @@ class Handler:
             bet = Bet(agency, first_name, last_name, document, birthdate, number)
             bets.append(bet)
 
-        self._bets_file_lock.acquire()
-        store_bets(bets)
-        self._bets_file_lock.release()
+        logging.info(f'action: apuestas_almacenadas | result: in progress')
+        with self._bets_file_lock:
+            store_bets(bets)
+        
         logging.info(f'action: apuestas_almacenadas | result: success | size: {batch_size}')
 
         response_code = (OK_RESPONSE_CODE).to_bytes(RESPONSE_CODE_SIZE, byteorder='big', signed=True)
@@ -109,11 +110,11 @@ class Handler:
 
         # Si ya terminaron todas las agencias
         if all(self._agency_finished.values()):
-            self._bets_file_lock.acquire()
-            for bet in load_bets():
-                if has_won(bet):
-                    self._winners.append(bet)
-            self._bets_file_lock.release()
+            with self._bets_file_lock:
+                for bet in load_bets():
+                    if has_won(bet):
+                        self._winners.append(bet)
+
 
             logging.info('action: sorteo | result: success')
             self._winners_is_set.value = 1
