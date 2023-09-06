@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"strings"
 	"strconv"
+	"fmt"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -29,7 +30,7 @@ type ClientConfig struct {
 	MaxBatchSize  int
 }
 
-// Client Entity that encapsulates how
+
 type Client struct {
 	config ClientConfig
 	conn   ClientSocket
@@ -54,7 +55,7 @@ func (c *Client) StartClientLoop() {
 	signal.Notify(sigterm, syscall.SIGTERM)
 
 	f, err := os.Open(c.config.DataPath)
-	defer f.Close()
+	defer c.CloseFile(f)
     if err != nil {
         log.Fatalf("action: open_data_file | result: fail | error: %s",
 			err,
@@ -66,13 +67,8 @@ func (c *Client) StartClientLoop() {
 loop:
 
 	// Send messages if the loopLapse threshold has not been surpassed
-	for timeout := time.After(c.config.LoopLapse); ; {
+	for ; ; {
 		select {
-		case <-timeout:
-	        log.Infof("action: timeout_detected | result: success | client_id: %v",
-                c.config.ID,
-            )
-			break loop
 		case <-sigterm:
 	        log.Infof("action: sigterm_received | client_id: %v",
                 c.config.ID,
@@ -177,14 +173,23 @@ func (c *Client) SendBatch(buffer []byte, totalBufferLen int, batchSize int) err
 
 		c.conn.send(buffer, totalBufferLen)	
 
-		response_bytes, err := c.conn.receive(REPONSE_CODE_SIZE)
-		response_code := int16(binary.BigEndian.Uint16(response_bytes))
-		
-		if err != nil || response_code != RESPONSE_CODE_OK {
-			log.Errorf("action: apuesta_enviada | result: fail | err: %s | response_code: %v", err, response_code)
+		responseBytes, err := c.conn.receive(REPONSE_CODE_SIZE)
+
+		if err != nil {
+			log.Errorf("action: apuesta_enviada | result: fail | err: %s", err)
 			return err
+		}
+		responseCode := int16(binary.BigEndian.Uint16(responseBytes))
+		if responseCode != RESPONSE_CODE_OK{
+			log.Errorf("action: apuesta_enviada | result: fail | response_code: %v", responseCode)
+			return fmt.Errorf("action: apuesta_enviada | result: fail | response_code: %v", responseCode)
 		}
 		log.Infof("action: apuesta_enviada | result: success")
 		
 		return nil
+}
+
+func (c *Client) CloseFile(f *os.File){
+	f.Close()
+	log.Infof("action: close_data_file | result: success")
 }
