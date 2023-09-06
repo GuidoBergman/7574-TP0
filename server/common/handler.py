@@ -36,29 +36,33 @@ class Handler:
         client socket will also be closed
         """
 
-        status, msg, addr = client_sock.receive(ACTION_INFO_MSG_SIZE)
-        if status == STATUS_ERR:
-            logging.error("action: receive_message | result: fail")
-            client_sock.close()
-            return
+        keep_running = True
 
-        action_code, agency, batch_size = unpack('!cHH',msg)
-        action_code = action_code.decode(STRING_ENCODING)
-        
+        while keep_running:
+            status, msg, addr = client_sock.receive(ACTION_INFO_MSG_SIZE)
+            if status == STATUS_ERR:
+                logging.error(f"action: receive_message | result: fail | ip: {addr[0]}")
+                client_sock.close()
+                return
 
-        if action_code == BET_CODE:
-            logging.info(f'action: action_info_msg_received | result: success | type: receive bets batch | batch size: {batch_size} | agency: {agency}')
-            self._receive_bet_batch(client_sock, agency, batch_size)
-        elif action_code == END_CODE:
-            logging.info(f'action: action_info_msg_received | result: success | type: notify that all of the agency\'s bets have been received | agency: {agency}')
-            self._receive_end_code(client_sock, agency)
-        elif action_code == WINNERS_CODE:
-            logging.info(f'action: action_info_msg_received | result: success | type: winners query | agency: {agency}')
-            self._winners_query(client_sock, agency)
-        else:
-            logging.error(f'action: action_info_msg_received | result: fail | reason: invalid action code ({action_code})')
-            client_sock.close()
-            return   
+            action_code, agency, batch_size = unpack('!cHH',msg)
+            action_code = action_code.decode(STRING_ENCODING)
+
+
+            if action_code == BET_CODE:
+                logging.info(f'action: action_info_msg_received | result: success | type: receive bets batch | batch size: {batch_size} | agency: {agency}')
+                self._receive_bet_batch(client_sock, agency, batch_size)
+            elif action_code == END_CODE:
+                logging.info(f'action: action_info_msg_received | result: success | type: notify that all of the agency\'s bets have been received | agency: {agency}')
+                self._receive_end_code(client_sock, agency)
+            elif action_code == WINNERS_CODE:
+                logging.info(f'action: action_info_msg_received | result: success | type: winners query | agency: {agency}')
+                keep_running = self._winners_query(client_sock, agency)
+            else:
+                logging.error(f'action: action_info_msg_received | result: fail | reason: invalid action code ({action_code})')
+                client_sock.close()
+                return   
+
 
     def _receive_bet_batch(self, client_sock, agency, batch_size):
         status, msg, addr = client_sock.receive(BET_MESSAGE_SIZE * batch_size)
@@ -90,20 +94,17 @@ class Handler:
         response_code = (OK_RESPONSE_CODE).to_bytes(RESPONSE_CODE_SIZE, byteorder='big', signed=True)
         status = client_sock.send(response_code, RESPONSE_CODE_SIZE)
         if status == STATUS_ERR:
-            logging.error("action: send_message | result: fail | ip: {addr[0]}")
+            logging.error(f"action: send_message | result: fail | ip: {addr[0]}")
             client_sock.close()
             return
 
-        client_sock.close()
-        logging.info(f'action: close_client_socket | result: success | ip: {addr[0]}')
+
             
 
             
     def _receive_end_code(self, client_sock, agency):
         # Evito buscar los ganadores 2 veces
         if self._winners_is_set.value == 1:
-            client_sock.close()
-            logging.info(f'action: close_client_socket | result: success')
             return
 
         self._agency_finished[agency] = True
@@ -119,10 +120,11 @@ class Handler:
             logging.info('action: sorteo | result: success')
             self._winners_is_set.value = 1
 
-        client_sock.close()
-        logging.info(f'action: close_client_socket | result: success')
 
 
+
+    # Post: devuelve True si se deben continuar recibiendo mensajes del cliente 
+    # o False en caso contrario
     def _winners_query(self, client_sock, agency):
         # Si todavia no estan los ganadores, devuelvo que aun no se hizo el sorteo
         if self._winners_is_set.value == 0:
@@ -130,10 +132,8 @@ class Handler:
             status = client_sock.send(response_code, RESPONSE_CODE_SIZE)
             if status == STATUS_ERR:
                 logging.error("action: send_message | result: fail")
-                client_sock.close()
-                logging.info(f'action: close_client_socket | result: success')
             
-            return
+            return True
 
         response_code = OK_RESPONSE_CODE
 
@@ -153,3 +153,5 @@ class Handler:
 
         client_sock.close()
         logging.info(f'action: close_client_socket | result: success')
+
+        return False

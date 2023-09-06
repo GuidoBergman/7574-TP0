@@ -56,9 +56,19 @@ func NewClient(config ClientConfig) *Client {
 
 
 
-// StartClientLoop Send messages to the client until some time threshold is met
+
 func (c *Client) StartClientLoop() {
-	// autoincremental msgID to identify every message sent
+	err := c.conn.createClientSocket(c.config.ServerAddress)
+	if err != nil {
+		log.Fatalf(
+			"action: connect | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return 
+	}
+	defer c.conn.close()
+
 
 	sigterm := make(chan os.Signal, 1) 
 	signal.Notify(sigterm, syscall.SIGTERM)
@@ -66,7 +76,7 @@ func (c *Client) StartClientLoop() {
 	f, err := os.Open(c.config.DataPath)
 	defer f.Close()
     if err != nil {
-        log.Fatalf("action: open_data_file | result: fail | error: %s",
+        log.Errorf("action: open_data_file | result: fail | error: %s",
 			err,
 		)
     }
@@ -170,18 +180,6 @@ func (c *Client) CreateBatch(scanner *bufio.Scanner) ([]byte, int, int, bool, st
 }
 
 func (c *Client) SendBatch(buffer []byte, totalBufferLen int, batchSize int) error{
-		err := c.conn.createClientSocket(c.config.ServerAddress)
-		if err != nil {
-			log.Errorf(
-	        	"action: connect | result: fail | client_id: %v | error: %v",
-				c.config.ID,
-				err,
-			)
-			return err
-		}
-		defer c.conn.close()
-
-
 		// Send action information message (message_code, batch size, agency_number)
 		actionInfoBuffer := make([]byte, ACTION_INFO_MSG_SIZE)
 		betCode := []byte(BET_CODE)
@@ -208,25 +206,16 @@ func (c *Client) SendBatch(buffer []byte, totalBufferLen int, batchSize int) err
 }
 
 func (c *Client) SendEnd() error{
-	err := c.conn.createClientSocket(c.config.ServerAddress)
-	if err != nil {
-		log.Errorf(
-			"action: connect | result: fail | client_id: %v | error: %v",
-			c.config.ID,
-			err,
-			)
-			return err
-		}
-	defer c.conn.close()
-
-
 	// Send action information message to indicate that the agency has sent all it's bets
 	actionInfoBuffer := make([]byte, ACTION_INFO_MSG_SIZE)
 	endCode := []byte(END_CODE)
 	copy(actionInfoBuffer, endCode)
 	binary.BigEndian.PutUint16(actionInfoBuffer[1:], uint16(c.config.ID))
-	c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
-
+	err := c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
+	if err != nil {
+		log.Errorf("action: send_end_msg | result: fail | error: %s", err)
+		return err
+	}
 	log.Infof("action: send_end_msg | result: success")
 
 	return nil
@@ -237,24 +226,23 @@ func (c *Client) QueryWinners() error{
 	responseCode := NO_DRAW_YET_CODE
 
 	for responseCode != RESPONSE_CODE_OK{
-		err := c.conn.createClientSocket(c.config.ServerAddress)
-		if err != nil {
-			log.Errorf(
-				"action: connect | result: fail | client_id: %v | error: %v",
-				c.config.ID, err,
-				)
-				return err
-			}
-
 		// Send action information message to query the agency's winners
+		log.Infof("action: consulta_ganadores | result: in progress")
 		actionInfoBuffer := make([]byte, ACTION_INFO_MSG_SIZE)
 		winCode := []byte(WINNERS_CODE)
 		copy(actionInfoBuffer, winCode)
 		binary.BigEndian.PutUint16(actionInfoBuffer[1:], uint16(c.config.ID))
-		c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
+		err := c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
+		if err != nil{
+			log.Errorf("action: consulta_ganadores | stage: enviar la consulta | result: fail | error: %s", err)
+			return err
+		}
 
-		log.Infof("action: consulta_ganadores | result: in progress")
-		responseBytes, _ := c.conn.receive(REPONSE_CODE_SIZE)
+		responseBytes, err:= c.conn.receive(REPONSE_CODE_SIZE)
+		if err != nil{
+			log.Errorf("action: consulta_ganadores | stage: recibir la respuesta | result: fail | error: %s", err)
+			return err
+		}
 		responseCode = int16(binary.BigEndian.Uint16(responseBytes))
 
 		if responseCode == NO_DRAW_YET_CODE{
@@ -264,7 +252,6 @@ func (c *Client) QueryWinners() error{
 			if exponent < WINNER_WAIT_MAX_EXPONENT{
 				exponent ++
 			}
-			c.conn.close()
 		}
 		
 	}
@@ -280,7 +267,6 @@ func (c *Client) QueryWinners() error{
 		winner := binary.BigEndian.Uint16(responseBytes)
 		log.Infof("action: consulta_ganadores | result: success | Número ganador: %v.", winner)
 	}
-	
-	c.conn.close()
+
 	return nil
 }
