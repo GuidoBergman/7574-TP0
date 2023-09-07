@@ -177,10 +177,19 @@ func (c *Client) SendBatch(buffer []byte, totalBufferLen int, batchSize int) err
 		betCode := []byte(BET_CODE)
 		copy(actionInfoBuffer, betCode)
 		binary.BigEndian.PutUint16(actionInfoBuffer[1:], uint16(c.config.ID))
-		binary.BigEndian.PutUint16(actionInfoBuffer[3:], uint16(batchSize))		
-		c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
+		binary.BigEndian.PutUint16(actionInfoBuffer[3:], uint16(batchSize))
+				
+		err := c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
+		if err != nil {
+			log.Errorf("action: apuesta_enviada | result: fail | err: %s", err)
+			return err
+		}
 
-		c.conn.send(buffer, totalBufferLen)	
+		err = c.conn.send(buffer, totalBufferLen)	
+		if err != nil {
+			log.Errorf("action: apuesta_enviada | result: fail | err: %s", err)
+			return err
+		}
 
 		responseBytes, err := c.conn.receive(REPONSE_CODE_SIZE)
 		if err != nil {
@@ -248,14 +257,22 @@ func (c *Client) QueryWinners() error{
 		
 	}
 
-	responseBytes, _ := c.conn.receive(COUNT_WINNERS_SIZE)
+	responseBytes, err := c.conn.receive(COUNT_WINNERS_SIZE)
+	if err != nil{
+		log.Errorf("action: consulta_ganadores | stage: recibir la respuesta | result: fail | error: %s", err)
+		return err
+	}
 	countWinners := binary.BigEndian.Uint16(responseBytes)
 
 	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v.", countWinners)
 
 	var i uint16 = 0
 	for ;i  < countWinners; i++ {
-		responseBytes, _ := c.conn.receive(WINNER_SIZE)
+		responseBytes, err := c.conn.receive(WINNER_SIZE)
+		if err != nil{
+			log.Errorf("action: consulta_ganadores | stage: recibir la respuesta | result: fail | error: %s", err)
+			return err
+		}
 		winner := binary.BigEndian.Uint16(responseBytes)
 		log.Infof("action: consulta_ganadores | result: success | Número ganador: %v.", winner)
 	}
