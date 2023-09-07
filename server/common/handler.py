@@ -2,6 +2,7 @@ import logging
 from common.common_socket import CommonSocket, STATUS_ERR, STATUS_OK
 from struct import unpack, pack, calcsize
 from common.utils import *
+import signal
 
 
 
@@ -27,14 +28,35 @@ class Handler:
         self._winners_is_set = manager.Value('i', 0)
         self._winners = manager.list()
         self._bets_file_lock = manager.Lock()
+        self._socket = None
 
+    
+    def _sigterm_handler(self, _signo, _stack_frame):
+        logging.info('action: sigterm_received (agency)')
+        if self._socket:
+            self._socket.close()
+            if self._agency:
+                logging.info(f'action: close_client_socket | result: success | agency: {self._agency}')
+            else:
+                logging.info(f'action: close_client_socket | result: success')
+
+    # Hago un weapper para el graceful exit
     def handle_client_connection(self, client_sock):
+        signal.signal(signal.SIGTERM, self._sigterm_handler)
+        try:
+           self._handle_client_connection(client_sock)
+        except (ConnectionResetError, BrokenPipeError, OSError):
+            return
+
+    def _handle_client_connection(self, client_sock):
         """
         Read message from a specific client socket and closes the socket
 
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
+
+        self._socket = client_sock
 
         keep_running = True
 
@@ -48,6 +70,7 @@ class Handler:
             action_code, agency, batch_size = unpack('!cHH',msg)
             action_code = action_code.decode(STRING_ENCODING)
 
+            self._agency = agency
 
             if action_code == BET_CODE:
                 logging.info(f'action: action_info_msg_received | result: success | type: receive bets batch | batch size: {batch_size} | agency: {agency}')
