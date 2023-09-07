@@ -37,6 +37,11 @@ type ClientConfig struct {
 	LoopPeriod    time.Duration
 	DataPath	  string
 	MaxBatchSize  int
+	FirstName     string
+	LastName	  string
+	Document      int
+	Birthdate     string
+	Number        int	
 }
 
 

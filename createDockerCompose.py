@@ -21,7 +21,9 @@ textServerConfig = """
     networks:
       - testing_net
     volumes:
-      - ./server/config.ini:/congig.ini:ro
+      - type: bind
+        source: ./server/config.ini
+        target: /config.ini
 """
 
 
@@ -59,7 +61,9 @@ else:
     depends_on:
       - server
     volumes:
-      - ./client/config.yaml:/build/config.yaml:ro
+      - type: bind
+        source: ./client/config.yaml
+        target: /config.yaml
     """
 
     dockerComposeFile = open(FILEPATH, 'w')

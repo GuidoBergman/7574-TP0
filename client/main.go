@@ -37,6 +37,11 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("log", "level")
 	v.BindEnv("data", "path")
 	v.BindEnv("batch", "size")
+	v.BindEnv("first", "name")
+	v.BindEnv("last", "name")
+	v.BindEnv("document")
+	v.BindEnv("birtdate")
+	v.BindEnv("number")
 
 
 	// Try to read configuration from config file. If config file
@@ -89,6 +94,7 @@ func PrintConfig(v *viper.Viper) {
 	    v.GetString("log.level"),
 		v.GetString("data.path"),
 		v.GetInt("batch.size"),
+		
     )
 }
 
@@ -112,6 +118,11 @@ func main() {
 		LoopPeriod:    v.GetDuration("loop.period"),
 		DataPath:	   v.GetString("data.path"),
 		MaxBatchSize:  v.GetInt("batch.size"),
+		FirstName:	   v.GetString("first.name"),
+		LastName:	   v.GetString("last.name"),
+		Birthdate:     v.GetString("birthdate"),
+		Document:      v.GetInt("document"),
+		Number:	       v.GetInt("number"),
 	}
 
 	client := common.NewClient(clientConfig)
