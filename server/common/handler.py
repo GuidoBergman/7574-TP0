@@ -155,6 +155,9 @@ class Handler:
             status = client_sock.send(response_code, RESPONSE_CODE_SIZE)
             if status == STATUS_ERR:
                 logging.error("action: send_message | result: fail")
+                client_sock.close()
+                logging.info(f'action: close_client_socket | result: success')
+                return False
             
             return True
 
