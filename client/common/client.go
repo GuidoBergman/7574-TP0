@@ -166,9 +166,17 @@ func (c *Client) SendBatch(buffer []byte, totalBufferLen int, batchSize int) err
 		copy(actionInfoBuffer, betCode)
 		binary.BigEndian.PutUint16(actionInfoBuffer[1:], uint16(c.config.ID))
 		binary.BigEndian.PutUint16(actionInfoBuffer[3:], uint16(batchSize))
-		c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
+		err = c.conn.send(actionInfoBuffer, ACTION_INFO_MSG_SIZE)	
+		if err != nil {
+			log.Errorf("action: apuesta_enviada | result: fail | err: %s", err)
+			return err
+		}
 
-		c.conn.send(buffer, totalBufferLen)	
+		err = c.conn.send(buffer, totalBufferLen)	
+		if err != nil {
+			log.Errorf("action: apuesta_enviada | result: fail | err: %s", err)
+			return err
+		}
 
 		responseBytes, err := c.conn.receive(REPONSE_CODE_SIZE)
 
