@@ -9,12 +9,11 @@ class Server:
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
-        self._keep_running = True
         signal.signal(signal.SIGTERM, self.sigterm_handler)
 
     def sigterm_handler(self, _signo, _stack_frame):
         logging.info('action: sigterm_received')
-        self._keep_running = False
+        self.__close_connection()
         
 
     def run(self):
@@ -26,11 +25,16 @@ class Server:
         finishes, servers starts to accept new connections again
         """
 
-        while self._keep_running:
-            client_sock = self.__accept_new_connection()
+        while True:
+            try:
+                client_sock = self.__accept_new_connection()
+            except OSError:
+                break
+            
             self.__handle_client_connection(client_sock)
+           
 
-        self.__close_connection()
+
 
     def __handle_client_connection(self, client_sock):
         """
